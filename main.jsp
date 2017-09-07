@@ -1,0 +1,147 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Insert title here</title>
+<style>
+
+#searchDiv
+{
+	z-index: 100;
+	background-color: rgba(40, 40, 40, .4);
+	position: absolute;
+	width : 200px;
+	height: 40px;
+}
+
+</style>
+</head>
+<!-- Naver MAP API  -->
+<script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?clientId=g2myzVuvusHGFA6W4v45&submodules=geocoder"></script>
+
+<script src="../js/jquery-3.2.1.js"></script>
+
+<body>
+
+<div id="map" style="width:100%;height:400px;">
+
+	<div id="searchDiv"> 
+		<input type="text" id="address" />
+		<input type="button" id="submit" value="검색하기" />
+	</div>
+	
+</div>
+
+</body>
+
+<script>
+
+var map = new naver.maps.Map("map", {
+    center: new naver.maps.LatLng(37.3595316, 127.1052133),
+    zoom: 10,
+    mapTypeControl: true
+});
+
+var infoWindow = new naver.maps.InfoWindow({
+    anchorSkew: true
+});
+
+map.setCursor('pointer');
+
+// search by tm128 coordinate
+function searchCoordinateToAddress(latlng) {
+    var tm128 = naver.maps.TransCoord.fromLatLngToTM128(latlng);
+
+    infoWindow.close();
+
+    naver.maps.Service.reverseGeocode({
+        location: tm128,
+        coordType: naver.maps.Service.CoordType.TM128
+    }, function(status, response) {
+        if (status === naver.maps.Service.Status.ERROR) {
+            return alert('Something Wrong!');
+        }
+
+        var items = response.result.items,
+            htmlAddresses = [];
+
+        for (var i=0, ii=items.length, item, addrType; i<ii; i++) {
+            item = items[i];
+            addrType = item.isRoadAddress ? '[도로명 주소]' : '[지번 주소]';
+
+            htmlAddresses.push((i+1) +'. '+ addrType +' '+ item.address);
+            htmlAddresses.push('&nbsp&nbsp&nbsp -> '+ item.point.x +','+ item.point.y);
+        }
+
+        infoWindow.setContent([
+                '<div style="padding:10px;min-width:200px;line-height:150%;">',
+                '<h4 style="margin-top:5px;">검색 좌표 : '+ response.result.userquery +'</h4><br />',
+                htmlAddresses.join('<br />'),
+                '</div>'
+            ].join('\n'));
+
+        infoWindow.open(map, latlng);
+    });
+}
+
+// result by latlng coordinate
+function searchAddressToCoordinate(address) {
+    naver.maps.Service.geocode({
+        address: address
+    }, function(status, response) {
+        if (status == naver.maps.Service.Status.ERROR) {
+        	alert(address);
+            return alert('Something Wrong!');  // 여기서 에러가 나네... ;;;
+        }
+
+        var item = response.result.items[0],
+            addrType = item.isRoadAddress ? '[도로명 주소]' : '[지번 주소]',
+            point = new naver.maps.Point(item.point.x, item.point.y);
+
+        infoWindow.setContent([
+                '<div style="padding:10px;min-width:200px;line-height:150%;">',
+                '<h4 style="margin-top:5px;">검색 주소 : '+ response.result.userquery +'</h4><br />',
+                addrType +' '+ item.address +'<br />',
+                '&nbsp&nbsp&nbsp -> '+ point.x +','+ point.y,
+                '</div>'
+            ].join('\n'));
+
+
+        map.setCenter(point);
+        infoWindow.open(map, point);
+    });
+}
+
+function initGeocoder() {
+    map.addListener('click', function(e) {
+        searchCoordinateToAddress(e.coord);
+    });
+
+    $('#address').on('keydown', function(e) {
+        var keyCode = e.which;
+
+        if (keyCode === 13) { // Enter Key
+            searchAddressToCoordinate($('#address').val());
+        }
+    });
+
+    $('#submit').on('click', function(e) {
+        e.preventDefault();
+
+        searchAddressToCoordinate($('#address').val());
+    });
+
+    searchAddressToCoordinate('정자동 178-1');
+}
+
+naver.maps.onJSContentLoaded = initGeocoder;
+
+
+
+</script>
+
+
+
+</html>
